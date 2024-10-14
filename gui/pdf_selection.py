@@ -5,6 +5,7 @@ from tkinter import messagebox, filedialog  # Import filedialog explicitly
 import re
 import os
 import PyPDF2
+from .button_utils import create_styled_button  # Import the utility function
 
 class PDFSelectionFrame:
     def __init__(self, parent, gui):
@@ -24,13 +25,10 @@ class PDFSelectionFrame:
         self.pdf_label = tk.Label(self.parent, text="No PDF selected.", fg="red")
         self.pdf_label.pack(anchor=tk.W)
 
-        select_pdf_button = tk.Button(
+        select_pdf_button = create_styled_button(
             self.parent, 
             text="Select PDF", 
             command=self.select_pdf,
-            bg="black", fg="white",
-            activebackground="grey", activeforeground="white",
-            width=15
         )
         select_pdf_button.pack(pady=5)
 

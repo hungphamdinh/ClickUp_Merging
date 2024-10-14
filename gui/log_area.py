@@ -17,7 +17,7 @@ class LogAreaFrame:
         self.create_widgets()
 
     def create_widgets(self):
-        self.log_text = tk.Text(self.parent, height=15, wrap=tk.WORD, state='disabled', bg="#f0f0f0")
+        self.log_text = tk.Text(self.parent, height=15, wrap=tk.WORD, state='disabled', bg="black")
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
     def log(self, message):

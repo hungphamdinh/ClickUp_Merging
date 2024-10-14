@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from tkinter import messagebox
+from .button_utils import create_styled_button  # Import the utility function
 
 class ActionButtonsFrame:
     def __init__(self, parent, gui):
@@ -17,51 +18,36 @@ class ActionButtonsFrame:
         self.create_widgets()
 
     def create_widgets(self):
-        # Check Branches Button
-        self.check_branches_button = tk.Button(
-            self.parent, 
-            text="Check Branches", 
-            command=self.gui.check_branches, 
-            state=tk.DISABLED, 
-            width=20,
-            bg="black", fg="white",
-            activebackground="grey", activeforeground="white"
+        # Create Buttons using the utility function with updated styles
+        self.check_branches_button = create_styled_button(
+            parent=self.parent,
+            text="Check Branches",
+            command=self.gui.check_branches,
+            state=tk.DISABLED
         )
         self.check_branches_button.pack(side=tk.LEFT, padx=10)
 
-        # Merge Button
-        self.merge_button = tk.Button(
-            self.parent, 
-            text="Merge", 
-            command=self.gui.merge_branches, 
-            state=tk.DISABLED, 
-            width=20,
-            bg="black", fg="white",
-            activebackground="grey", activeforeground="white"
+        self.merge_button = create_styled_button(
+            parent=self.parent,
+            text="Merge",
+            command=self.gui.merge_branches,
+            state=tk.DISABLED
         )
         self.merge_button.pack(side=tk.LEFT, padx=10)
 
-        # Complete Resolve Button
-        self.complete_resolve_button = tk.Button(
-            self.parent, 
-            text="Complete Resolve", 
-            command=self.gui.complete_resolve, 
-            state=tk.DISABLED, 
-            width=20,
-            bg="black", fg="white",
-            activebackground="grey", activeforeground="white"
+        self.complete_resolve_button = create_styled_button(
+            parent=self.parent,
+            text="Complete Resolve",
+            command=self.gui.complete_resolve,
+            state=tk.DISABLED
         )
         self.complete_resolve_button.pack(side=tk.LEFT, padx=10)
 
-        # Push Changes Button
-        self.push_changes_button = tk.Button(
-            self.parent,
+        self.push_changes_button = create_styled_button(
+            parent=self.parent,
             text="Push Changes",
             command=self.gui.push_changes,
-            state=tk.DISABLED,  # Initially disabled; enabled after merging
-            width=20,
-            bg="black", fg="white",
-            activebackground="grey", activeforeground="white"
+            state=tk.DISABLED
         )
         self.push_changes_button.pack(side=tk.LEFT, padx=10)
 

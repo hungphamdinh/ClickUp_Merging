@@ -5,6 +5,7 @@ from tkinter import messagebox, filedialog  # Import filedialog explicitly
 from tkinter import ttk
 import os
 from git_manager import GitManager  # Ensure GitManager is imported
+from .button_utils import create_styled_button  # Import the utility function
 
 class SourceSelectionFrame:
     def __init__(self, parent, gui):
@@ -24,12 +25,11 @@ class SourceSelectionFrame:
         self.source_label = tk.Label(self.parent, text="No repository attached.", fg="red")
         self.source_label.pack(anchor=tk.W)
 
-        select_source_button = tk.Button(
-            self.parent, 
-            text="Select Source Code Directory", 
+        # Create 'Select Source Code Directory' button using the utility function
+        select_source_button = create_styled_button(
+            parent=self.parent,
+            text="Select Source Code Directory",
             command=self.select_source_code,
-            bg="black", fg="white",
-            activebackground="grey", activeforeground="white",
             width=25
         )
         select_source_button.pack(pady=5)
