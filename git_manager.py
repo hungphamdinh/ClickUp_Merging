@@ -112,17 +112,58 @@ class GitManager:
         """Stages all changes."""
         self.run_git_command(['git', 'add', '.'])
 
-    def commit_merge(self):
-        """Commits the merge without editing the commit message."""
-        self.run_git_command(['git', 'commit', '--no-edit'])
+    def commit_merge(self, message="Resolve merge conflict"):
+        """
+        Commits the current changes with the provided commit message.
+
+        :param message: The commit message to use.
+        """
+        try:
+            self.run_git_command(['git', 'commit', '-m', message])
+            self.log(f"Committed changes with message: '{message}'")
+        except Exception as e:
+            self.log(f"Error committing changes: {e}")
+            raise e
 
     def abort_merge(self):
         """Aborts the current merge."""
         self.run_git_command(['git', 'merge', '--abort'])
 
+    def has_upstream(self, branch):
+        """
+        Checks if the given branch has an upstream set.
+
+        :param branch: The branch to check.
+        :return: True if upstream is set, False otherwise.
+        """
+        try:
+            upstream = self.run_git_command(['git', 'rev-parse', '--abbrev-ref', f'{branch}@{{u}}'])
+            return True if upstream else False
+        except Exception:
+            return False
+
     def push_changes(self):
-        """Pushes all commits to the remote repository."""
-        self.run_git_command(['git', 'push'])
+        """
+        Pushes committed changes to the remote repository.
+        If the current branch has no upstream, it sets it automatically.
+        """
+        current_branch = self.get_current_branch()
+        if not current_branch:
+            raise Exception("Unable to determine the current branch.")
+
+        try:
+            if self.has_upstream(current_branch):
+                # Push normally if upstream is set
+                self.run_git_command(['git', 'push'])
+                self.log("🎉 Successfully pushed changes to the remote repository.")
+            else:
+                # Set upstream and push
+                self.run_git_command(['git', 'push', '--set-upstream', 'origin', current_branch])
+                self.log(f"🎉 Successfully pushed changes to 'origin/{current_branch}' and set upstream.")
+        except Exception as e:
+            self.log(f"Error pushing changes: {e}")
+            raise e
+        
 
     def get_current_branch(self):
         """
@@ -177,3 +218,23 @@ class GitManager:
         with open(required_branches_file, 'w') as f:
             for branch in required_branches:
                 f.write(f"{branch}\n")
+                
+    def remove_branch_from_required(self, branch, required_branches_file):
+        """
+        Removes a branch from the required_branches.txt file after it has been merged.
+
+        :param branch: The branch to remove.
+        :param required_branches_file: Path to the required_branches.txt file.
+        """
+        try:
+            with open(required_branches_file, 'r') as f:
+                branches = [line.strip() for line in f if line.strip() and line.strip() != branch]
+
+            with open(required_branches_file, 'w') as f:
+                for b in branches:
+                    f.write(f"{b}\n")
+
+            self.log(f"Removed branch '{branch}' from required_branches.txt.")
+        except Exception as e:
+            self.log(f"Error removing branch '{branch}' from required_branches.txt: {e}")
+            raise e

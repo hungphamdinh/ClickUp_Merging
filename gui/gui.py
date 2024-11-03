@@ -109,16 +109,24 @@ class GitMergeToolkitGUI:
 
     # Methods invoked by action buttons
 
-    def check_branches(self):
+    def check_branches(self, from_resolve=False):
         """
         Initiates the branch checking process.
+
+        :param from_resolve: Boolean indicating if the method is called after resolving conflicts.
         """
-        # Disable buttons to prevent multiple operations
-        self.action_buttons.disable_all_buttons()
+        if not from_resolve:
+            # Disable buttons to prevent multiple operations only if not called from resolve
+            self.action_buttons.disable_all_buttons()
+        else:
+            # Optionally, disable specific buttons or show a loading indicator
+            pass
+
         # Clear previous display
         self.update_task_branch_display([], {})
         # Run in a separate thread to keep GUI responsive
-        threading.Thread(target=self._check_branches).start()
+        threading.Thread(target=self._check_branches, daemon=True).start()
+
 
     def _check_branches(self):
         """
@@ -126,8 +134,7 @@ class GitMergeToolkitGUI:
         """
         try:
             if not self.git_manager:
-                messagebox.showerror("Error", "Please attach the source code directory first.")
-                self.action_buttons.enable_check_branches()
+                self.log("Error: Source code directory not attached.")
                 return
 
             self.log("Starting branch check...")
@@ -135,8 +142,7 @@ class GitMergeToolkitGUI:
             required_branches_file = os.path.join(self.git_manager.source_code_path, 'required_branches.txt')
 
             if not os.path.exists(task_ids_file):
-                messagebox.showerror("Error", "task_ids.txt not found in the source code directory. Please extract task IDs first.")
-                self.action_buttons.enable_check_branches()
+                self.log("Error: task_ids.txt not found in the source code directory. Please extract task IDs first.")
                 return
 
             task_ids = self.git_manager.get_task_ids(task_ids_file)
@@ -160,10 +166,19 @@ class GitMergeToolkitGUI:
             else:
                 self.action_buttons.disable_merge()
 
+            if self.status_label:
+                self.status_label.config(text="Status: Branch check completed.")
+
         except Exception as e:
+            self.log(f"Error during branch check: {e}")
             messagebox.showerror("Error", f"An error occurred during branch check:\n{e}")
         finally:
-            self.action_buttons.enable_check_branches()
+            if not from_resolve:
+                self.action_buttons.enable_all_buttons()
+            else:
+                # Optionally, handle button states if called from resolve
+                pass
+
 
     def merge_branches(self):
         """
@@ -215,6 +230,13 @@ class GitMergeToolkitGUI:
 
             for branch in required_branches:
                 self.log(f"Processing branch: '{branch}'")
+
+                # Check if branch is already merged
+                if self.git_manager.is_branch_merged(branch, current_branch):
+                    self.log(f"✅ Branch '{branch}' is already merged into '{current_branch}'. Skipping.")
+                    already_merged.append(branch)
+                    continue
+
                 # Check if branch exists locally or remotely
                 branch_exists = False
                 local_branch = False
@@ -241,14 +263,7 @@ class GitMergeToolkitGUI:
                     failed_merges.append(branch)
                     continue
 
-                target_branch = branch if local_branch else f"{branch}"
-
-                # Check if the branch is already merged
-                is_ancestor = self.git_manager.is_branch_merged(target_branch, current_branch)
-                if is_ancestor:
-                    self.log(f"✅ Branch '{branch}' is already merged into '{current_branch}'.")
-                    already_merged.append(branch)
-                    continue
+                target_branch = branch if local_branch else f"origin/{branch}"
 
                 # Attempt to merge the branch
                 try:
@@ -301,12 +316,14 @@ class GitMergeToolkitGUI:
             if not hasattr(self, 'conflict_occurred') or not self.conflict_occurred:
                 self.action_buttons.enable_merge()
 
+
     def complete_resolve(self):
         """
-        Finalizes the merge after resolving conflicts.
+        Finalizes the merge after resolving conflicts by committing the resolved changes.
+        Does not push the changes automatically.
         """
         try:
-            if not hasattr(self, 'conflict_occurred') or not self.conflict_occurred or not self.current_conflict_branch:
+            if not self.conflict_occurred or not self.current_conflict_branch:
                 messagebox.showinfo("Info", "No merge conflicts to resolve.")
                 return
 
@@ -315,8 +332,9 @@ class GitMergeToolkitGUI:
             # Add all changes
             self.git_manager.add_all_changes()
 
-            # Commit the merge
-            self.git_manager.commit_merge()
+            # Commit the merge with a specific commit message
+            commit_message = "Resolve merge conflict"
+            self.git_manager.commit_merge(commit_message)
 
             self.log(f"🎉 Conflicts resolved and '{self.current_conflict_branch}' merged.")
             messagebox.showinfo("Success", f"Conflicts resolved and '{self.current_conflict_branch}' merged successfully.")
@@ -328,19 +346,31 @@ class GitMergeToolkitGUI:
             # Disable 'Complete Resolve' button
             self.action_buttons.disable_complete_resolve()
 
-            # Refresh merge summary
+            # Notify user to push changes manually
+            self.log("Please push your changes to the remote repository when ready.")
+            messagebox.showinfo("Info", "Please push your changes to the remote repository when ready.")
+
+            # Refresh merge summary and update GUI
             self.log("Finalizing merge process...")
             self._finalize_merge()
+
+            # Restart branch checking to update the display
+            self.check_branches(from_resolve=True)
 
         except Exception as e:
             self.log(f"❌ Failed to finalize merge after conflict resolution: {e}")
             messagebox.showerror("Error", f"Failed to finalize merge after conflict resolution:\n{e}")
             # Abort the merge to clean up
-            try:
-                self.git_manager.abort_merge()
-                self.log(f"🛑 Merge aborted for '{self.current_conflict_branch}'.")
-            except Exception:
-                self.log(f"🛑 Failed to abort merge for '{self.current_conflict_branch}'.")
+            if self.current_conflict_branch:
+                try:
+                    self.git_manager.abort_merge()
+                    self.log(f"🛑 Merge aborted for '{self.current_conflict_branch}'.")
+                except Exception:
+                    self.log(f"🛑 Failed to abort merge for '{self.current_conflict_branch}'.")
+            else:
+                self.log("🛑 Failed to abort merge: No conflict branch specified.")
+                messagebox.showerror("Error", "Failed to abort merge: No conflict branch specified.")
+        messagebox.showerror("Error", "Failed to abort merge: No conflict branch specified.")
 
     def _finalize_merge(self):
         """
@@ -450,6 +480,8 @@ class GitMergeToolkitGUI:
             self.log(f"❌ An error occurred during finalizing the merge: {e}")
             messagebox.showerror("Error", f"An error occurred during finalizing the merge:\n{e}")
 
+    # Inside GitMergeToolkitGUI class
+
     def push_changes(self):
         """
         Initiates the push process.
@@ -457,7 +489,7 @@ class GitMergeToolkitGUI:
         # Disable buttons to prevent multiple operations
         self.action_buttons.disable_all_buttons()
         # Run in a separate thread to keep GUI responsive
-        threading.Thread(target=self._push_changes).start()
+        threading.Thread(target=self._push_changes, daemon=True).start()
 
     def _push_changes(self):
         """
@@ -466,8 +498,7 @@ class GitMergeToolkitGUI:
         try:
             if not self.git_manager:
                 messagebox.showerror("Error", "Please attach the source code directory first.")
-                self.action_buttons.enable_check_branches()
-                self.action_buttons.enable_merge()
+                self.action_buttons.enable_all_buttons()
                 return
 
             self.log("Starting push process...")
@@ -475,10 +506,6 @@ class GitMergeToolkitGUI:
             self.git_manager.push_changes()
             self.log("🎉 Successfully pushed all changes to the remote repository.")
             messagebox.showinfo("Success", "Successfully pushed all changes to the remote repository.")
-            # Re-enable buttons as necessary
-            self.action_buttons.enable_check_branches()
-            self.action_buttons.enable_merge()
-            self.action_buttons.disable_push_changes()  # Disable after push
         except Exception as e:
             self.log(f"❌ Failed to push changes: {e}")
             messagebox.showerror("Error", f"Failed to push changes:\n{e}")
@@ -486,5 +513,27 @@ class GitMergeToolkitGUI:
             self.action_buttons.enable_push_changes()
         finally:
             # Ensure other buttons are re-enabled
-            self.action_buttons.enable_check_branches()
-            self.action_buttons.enable_merge()
+            self.action_buttons.enable_all_buttons()
+
+    def _refresh_branch_display(self):
+        """
+        Refreshes the Task IDs and Branches display to reflect the latest state.
+        """
+        try:
+            task_ids_file = os.path.join(self.git_manager.source_code_path, 'task_ids.txt')
+            required_branches_file = os.path.join(self.git_manager.source_code_path, 'required_branches.txt')
+
+            if not os.path.exists(task_ids_file) or not os.path.exists(required_branches_file):
+                self.log("Task IDs or Required Branches file not found. Skipping display refresh.")
+                return
+
+            task_ids = self.git_manager.get_task_ids(task_ids_file)
+            required_branches, task_branch_map = self.git_manager.get_matching_branches(task_ids)
+
+            # Update Task-Branch Display
+            self.update_task_branch_display(task_ids, task_branch_map)
+
+            self.log("Branch display refreshed.")
+        except Exception as e:
+            self.log(f"❌ Failed to refresh branch display: {e}")
+            messagebox.showerror("Error", f"Failed to refresh branch display:\n{e}")
