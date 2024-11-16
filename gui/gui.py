@@ -125,10 +125,10 @@ class GitMergeToolkitGUI:
         # Clear previous display
         self.update_task_branch_display([], {})
         # Run in a separate thread to keep GUI responsive
-        threading.Thread(target=self._check_branches, daemon=True).start()
+        threading.Thread(target=self._check_branches, args=(from_resolve,), daemon=True).start()
 
 
-    def _check_branches(self):
+    def _check_branches(self, from_resolve=False):
         """
         Performs the actual branch checking in a separate thread.
         """
@@ -165,9 +165,6 @@ class GitMergeToolkitGUI:
                 self.action_buttons.enable_merge()
             else:
                 self.action_buttons.disable_merge()
-
-            if self.status_label:
-                self.status_label.config(text="Status: Branch check completed.")
 
         except Exception as e:
             self.log(f"Error during branch check: {e}")

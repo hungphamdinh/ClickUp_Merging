@@ -72,6 +72,12 @@ class ActionButtonsFrame:
         """
         self.merge_button.config(state=tk.NORMAL)
 
+    def disable_merge(self):
+        """
+        Disables the 'Merge' button.
+        """
+        self.merge_button.config(state=tk.DISABLED)
+
     def enable_complete_resolve(self):
         """
         Enables the 'Complete Resolve' button.
